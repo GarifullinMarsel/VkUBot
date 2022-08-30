@@ -31,7 +31,7 @@ class User:
         self.id = data.response[0].id
         self.avatar = avatar
         self.message = f"«{self._lines_formatter(message.response.items[0].reply_message.text, 35)}»"
-        self.user_command = dict(re.findall(r"(-[\w]+)\s* {,10}\s*([^-{,}]+)", " ".join(user_info.event.text.split()[1:])))
+        self.user_command = dict(re.findall(r"(-[\w]+)\s* {,10}\s*([^-{,}]+)", " ".join(event.text.split()[1:])))
 
 
     @staticmethod
