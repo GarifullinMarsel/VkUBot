@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 import aiohttp
 import io
 from textwrap import wrap
-
+import re
 
 api = API(clients=AIOHTTPClient(), tokens=TOKEN)
 uploader = PhotoUploader(api.get_context())
@@ -26,11 +26,13 @@ quote_router = DefaultRouter()
 
 
 class User:
-    def __init__(self, data, message, avatar) -> None:
+    def __init__(self, data, message, avatar, event) -> None:
         self.name = f"{data.response[0].first_name} {data.response[0].last_name}"
         self.id = data.response[0].id
         self.avatar = avatar
         self.message = f"«{self._lines_formatter(message.response.items[0].reply_message.text, 35)}»"
+        self.user_command = dict(re.findall(r"(-[\w]+)\s* {,10}\s*([^-{,}]+)", " ".join(user_info.event.text.split()[1:])))
+
 
     @staticmethod
     def _justify(line, width):
@@ -53,6 +55,11 @@ class Img:
     def __init__(self, user_info):
         self.user_info = user_info
         self.font = ImageFont.truetype('C:\Windows\Fonts\Arial.ttf', size=50)
+        if user_info.user_command.get("-t") != None:
+            self.title =user_info.user_command.get("-t")
+        else:
+            self.title = "Цитаты великих людей."
+
 
     async def _draw(self):
         im = Image.new("RGB",(1,1),"black")
@@ -62,8 +69,8 @@ class Img:
         im = Image.new("RGB", (W, H),"black")
         draw = ImageDraw.Draw(im)
         draw.multiline_text((50, (H-h)/2), self.user_info.message, fill="white",font=self.font)
-        title = draw.textsize("типо по центру", font=self.font)
-        draw.multiline_text(((W-title[0])/2, 30), "типо по центру", fill="white",font=self.font)
+        title = draw.textsize(self.title, font=self.font)
+        draw.multiline_text(((W-title[0])/2, 30), self.title, fill="white",font=self.font)
         draw.multiline_text((200, H-100), self.user_info.name, fill="white",font=self.font)
         im2 = self.user_info.avatar
         bigsize = im2.size[0] * 3, im2.size[1] * 3
@@ -94,7 +101,7 @@ async def main(event:SimpleUserEvent):
         async with session.get(url) as resp:
             avatar = Image.open(io.BytesIO(await resp.read()))
 
-    user = User(user_data, message, avatar)
+    user = User(user_data, message, avatar, event)
     img = Img(user)
 
     attachment = await uploader.get_attachment_from_io(peer_id=user.id, f=io.BytesIO((await img.get_bytes())))
