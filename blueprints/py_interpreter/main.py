@@ -5,57 +5,32 @@ from vkwave.bots import (
     CommandsFilter,
 )
 from vkwave.bots.core.dispatching.filters.builtin import EventTypeFilter, MessageEventUser
-from vkwave.bots import PhotoUploader
-from vkwave.client import AIOHTTPClient
 from vkwave.api import API
 from config import TOKEN
 from vkwave.bots.core.dispatching import filters 
-from io import StringIO
-import sys
 import html 
-import time
+import aiofiles
+import asyncio
+
 
 interpreter_router = DefaultRouter()
 
+
+async def start_program(code:str) -> str:
+    async with aiofiles.open("main.py", "w") as file:
+        await file.write(code)
+        result = await asyncio.create_subprocess_shell(
+            "python main.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await result.communicate()
+    return stdout.decode() if stdout else stderr.decode()
+
+
 @simple_user_handler(interpreter_router, EventTypeFilter(MessageEventUser), CommandsFilter("py", prefixes="/"), filters.FromMeFilter(True))
 async def main(event:SimpleUserEvent):
-    try:
-        # сохраняем ссылку, чтобы потом 
-        # снова отобразить вывод в консоли.
-        tmp_stdout = sys.stdout
-        
-        # В переменной `result` будет храниться все, 
-        # что отправляется на стандартный вывод
-        result = StringIO()
-        sys.stdout = result
-        
-        # Здесь все, что отправляется на стандартный вывод, 
-        # будет сохранено в переменную `result`.
-        
-        code = " ".join(html.unescape(event.text).replace("<br>", "\n").split()[1:])
-        start = time.time()
-        exec(code)
-        complite_time = "%s" % (start - time.time())
-        # Снова перенаправляем вывод `sys.stdout` на консоль
-        sys.stdout = tmp_stdout
-        
-        # Получаем стандартный вывод как строку!
-        result_string = result.getvalue()
-
-        await event.edit(
-            f"""
-            Code: 
-            {code}
-
-
-            Result:
-            {result_string}
-
-            Completed in {complite_time}s.
-            """
-        )
-
-    except Exception as err:
-        await event.edit(err)
-
-        
+    code = html.unescape(event.text[3:]).replace("<br>", "\n").replace("~", " ")
+    result = await start_program(code)
+    print(result)
+    await event.edit(f"Code:\n{code}Result:\n{result}")
